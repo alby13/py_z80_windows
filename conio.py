@@ -7,9 +7,12 @@ Provides non-blocking, non-echoing access to the console interface.
 #-----------------------------------------------------------------------------
 
 import os
-import select
-import termios
+import msvcrt
 import sys
+import ctypes
+from ctypes import wintypes
+
+#termiWin = ctypes.CDLL('C:/tmp/pyz80/termiWin.dll')
 
 #-----------------------------------------------------------------------------
 # when otherwise idle, allow other things to run
@@ -35,61 +38,73 @@ CHAR_BS    = 0x7f
 CHAR_DEL   = 0x7e
 
 #-----------------------------------------------------------------------------
+#
+# Modification Notes (July 30, 2024):
+# We create a custom way to manage the console mode on Windows. 
+# Since msvcrt doesn’t provide a direct method to save and restore the console mode, 
+# we can implement a workaround by using the Windows API to get and set console modes.
+#
+#-----------------------------------------------------------------------------
+
+# Windows API constants
+ENABLE_ECHO_INPUT = 0x0004
+ENABLE_LINE_INPUT = 0x0002
+ENABLE_PROCESSED_INPUT = 0x0001
+
+# Windows API functions
+kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+
+def get_console_mode(handle):
+    mode = wintypes.DWORD()
+    if not kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
+        raise ctypes.WinError(ctypes.get_last_error())
+    return mode.value
+
+def set_console_mode(handle, mode):
+    if not kernel32.SetConsoleMode(handle, mode):
+        raise ctypes.WinError(ctypes.get_last_error())
 
 class console:
-
     def __init__(self):
         """set the console to non-blocking, non-echoing"""
-        self.fd = os.open(os.ctermid(), os.O_RDWR)
-        self.saved = termios.tcgetattr(self.fd)
-        new = termios.tcgetattr(self.fd)
-        new[3] &= ~termios.ICANON
-        new[3] &= ~termios.ECHO
-        termios.tcsetattr(self.fd, termios.TCSANOW, new)
+        self.handle = kernel32.GetStdHandle(-10)  # STD_INPUT_HANDLE
+        self.saved_mode = get_console_mode(self.handle)
+        new_mode = self.saved_mode & ~(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT)
+        set_console_mode(self.handle, new_mode)
 
     def close(self):
         """restore original console settings"""
-        termios.tcsetattr(self.fd, termios.TCSANOW, self.saved)
-        os.close(self.fd)
+        set_console_mode(self.handle, self.saved_mode)
 
     def anykey(self):
         """poll for any key - return True when pressed"""
-        (rd, wr, er) = select.select((self.fd,), (), (), 0)
-        if rd:
-            # absorb the key press
-            os.read(self.fd, 3)
-            return True
-        else:
-            return False
+        return msvcrt.kbhit()
 
     def get(self):
-        """get console input - return ascii code"""
-        # block until we can read or we have a timeout
-        (rd, wr, er) = select.select((self.fd,), (), (), _poll_timeout)
-        if len(rd) == 0:
-            # timeout - allow other routines to run
-            return CHAR_NULL
-        x = os.read(self.fd, 3)
-        n = len(x)
-        if n == 1:
-            return ord(x)
-        elif n == 3:
-            if x == '\x1b[A':
-                return CHAR_UP
-            elif x == '\x1b[B':
-                return CHAR_DOWN
-            elif x == '\x1b[C':
-                return CHAR_RIGHT
-            elif x == '\x1b[D':
-                return CHAR_LEFT
-            elif x == '\x1b[F':
-                return CHAR_END
-            elif x == '\x1b[H':
-                return CHAR_HOME
-        return CHAR_NULL
+        """get console input - return ascii code or None if no input"""
+        if msvcrt.kbhit():
+            ch = msvcrt.getch()
+            if ch == b'\xe0': # Handle arrow keys
+                ch = msvcrt.getch()
+                if ch == b'H':
+                    return CHAR_UP
+                elif ch == b'P':
+                    return CHAR_DOWN
+                elif ch == b'K':
+                    return CHAR_LEFT
+                elif ch == b'M':
+                    return CHAR_RIGHT
+            elif ch == b'\r':  # Enter key
+                return CHAR_CR
+            elif ch == b'\x08': # Backspace key
+                return CHAR_BS # Return a specific code for backspace
+            else:
+                return ord(ch)
+        return None # Return None when no input
 
     def put(self, data):
         """output a string to console"""
-        os.write(self.fd, data)
+        sys.stdout.write(data)
+        sys.stdout.flush()
 
 #-----------------------------------------------------------------------------
