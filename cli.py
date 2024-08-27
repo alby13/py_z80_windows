@@ -18,7 +18,9 @@ Function Help Format: (parm, descr)
 """
 #-----------------------------------------------------------------------------
 
+import sys
 import conio
+import time
 
 #-----------------------------------------------------------------------------
 
@@ -33,15 +35,6 @@ class command:
         """clear the command string"""
         self.cmd = []
         self.cursor = 0
-        self.old_cmd = []
-        self.old_cursor = 0
-
-    def repeat(self):
-        """repeating the current command on a new line"""
-        # set the old command to null
-        self.old_cmd = []
-        self.old_cursor = 0
-        self.end()
 
     def set(self, cmd):
         """set the command string to a new value"""
@@ -52,17 +45,13 @@ class command:
         """return the current command string"""
         return ''.join(self.cmd)
 
-    def erase(self):
-        """erase a character from the tail of the command string"""
-        del self.cmd[-1:]
-        # ensure the cursor is valid
-        self.end()
-
     def backspace(self):
         """erase the character to the left of the cursor position"""
         if self.cursor > 0:
             del self.cmd[self.cursor - 1]
             self.cursor -= 1
+            self.app.io.put('\b \b')  # Send backspace, space, backspace 
+            sys.stdout.flush()        # Flush output to update the console immediately
 
     def delete(self):
         """erase the character at the cursor position"""
@@ -85,37 +74,34 @@ class command:
         if self.cursor < len(self.cmd):
             self.cursor += 1
 
-    def end(self):
-        """move the cursor to the end"""
-        self.cursor = len(self.cmd)
-
     def home(self):
         """move the cursor to the home"""
         self.cursor = 0
 
+    def end(self):
+        """move the cursor to the end"""
+        self.cursor = len(self.cmd)
+
+    def erase(self):
+        """erase a character from the tail of the command string"""
+        del self.cmd[-1:]
+        # ensure the cursor is valid
+        self.end()
+
     def render(self):
-        """render the command line"""
-        if (self.old_cmd == self.cmd) and (self.old_cursor == self.cursor):
-            return
+        # Move to the beginning of the line and clear it
+        self.app.io.put('\r\x1b[K')
 
-        # This is the dumbest thing that works
-        # Fix it for serial port operation
+        # Write the prompt and command
+        full_line = self.app.cli.prompt + self.get()
+        sys.stdout.write(full_line)   
 
-        # erase the old command
-        n1 = self.old_cursor
-        n2 = len(self.old_cmd)
-        erase = ''.join(['\b' * n1, ' ' * n2, '\b' * n2])
-        self.app.io.put(erase)
+        # Move cursor to correct position
+        cursor_position = len(self.app.cli.prompt) + self.cursor
+        sys.stdout.write(f'\033[{cursor_position}G')
 
-        # write the new command
-        self.app.io.put(self.get())
-
-        # position the cursor
-        bs = '\b' * (len(self.cmd) - self.cursor)
-        self.app.io.put(bs)
-
-        self.old_cmd = list(self.cmd)
-        self.old_cursor = self.cursor
+        # Force flush the output
+        sys.stdout.flush()
 
 #-----------------------------------------------------------------------------
 
@@ -127,7 +113,7 @@ class cli:
         self.hidx = 0
         self.cl = command(app)
         self.running = True
-        self.prompt = '\n> '
+        self.prompt = '> '
         self.poll = None
 
     def set_root(self, root):
@@ -152,7 +138,14 @@ class cli:
                 self.app.io.put('    %-19s  %s\n' % ('', descr))
 
     def reset_history(self):
+        """reset the command history index"""
         self.hidx = len(self.history)
+
+    def add_history(self, cmd):
+        """add a command to the history"""
+        if cmd and (len(self.history) == 0 or self.history[-1] != cmd):
+            self.history.append(cmd)
+        self.reset_history()
 
     def put_history(self, cmd):
         """put a command into the history list"""
@@ -206,46 +199,76 @@ class cli:
         accumulate input characters to the command line
         return True when processing is needed
         return False for on going input
+        get a command from the user
         """
-        c = self.app.io.get()
-        if c == conio.CHAR_NULL:
-            return False
-        elif (c == conio.CHAR_TAB) or (c == conio.CHAR_QM):
-            self.cl.end()
-            self.cl.add(chr(c))
-            return True
-        elif c == conio.CHAR_CR:
-            return True
-        elif c == conio.CHAR_DOWN:
-            self.cl.set(self.get_history_fwd())
-            return False
-        elif c == conio.CHAR_UP:
-            self.cl.set(self.get_history_rev())
-            return False
-        elif c == conio.CHAR_LEFT:
-            self.cl.left()
-            return False
-        elif c == conio.CHAR_RIGHT:
-            self.cl.right()
-            return False
-        elif c == conio.CHAR_END:
-            self.cl.end()
-            return False
-        elif c == conio.CHAR_HOME:
-            self.cl.home()
-            return False
-        elif c == conio.CHAR_ESC:
-            self.cl.clear()
-            return True
-        elif c == conio.CHAR_BS:
-            self.cl.backspace()
-            return False
-        elif c == conio.CHAR_DEL:
-            self.cl.delete()
-            return False
+        self.cl.clear()
+        self.cl.render()
+        while True:
+            c = self.app.io.get()
+            if c is None:
+                time.sleep(0.01)  # Add a small delay to prevent busy-waiting
+                continue
+
+            #print(f"\nDEBUG: Received char: {c}")  # Debugging print
+
+            if c == conio.CHAR_CR:  # Enter key
+                break
+            elif c == conio.CHAR_BS:  # Backspace
+                self.cl.backspace()
+            elif c == conio.CHAR_DEL:  # Delete
+                self.cl.delete()
+            elif c == conio.CHAR_LEFT:  # Left arrow
+                self.cl.left()
+            elif c == conio.CHAR_RIGHT:  # Right arrow
+                self.cl.right()
+            elif c == conio.CHAR_HOME:  # Home
+                self.cl.home()
+            elif c == conio.CHAR_END:  # End
+                self.cl.end()
+            elif c == conio.CHAR_UP:  # Up arrow
+                self.cl.set(self.get_history_rev()) # Set the command line to the previous history entry
+            elif c == conio.CHAR_DOWN:  # Down arrow
+                self.cl.set(self.get_history_fwd()) # Set the command line to the next history entry
+            elif c >= 32 and c <= 126:  # Printable ASCII characters
+                self.cl.add(chr(c))
+            else:
+                print(f"Unhandled character: {c}")
+
+            self.cl.render()
+
+        cmd = self.cl.get()
+        return cmd
+
+    def execute_cmd(self):
+        """execute the command"""
+        cmd = self.get_cmd()
+        if cmd:
+            self.add_history(cmd)
+            self.app.put('\n')
+            self.dispatch(cmd)
         else:
-            self.cl.add(chr(c))
-            return False
+            print("No command received at execute_cmd")  # Debug print
+
+    def dispatch(self, cmd):
+        """dispatch the command to the appropriate handler"""
+        parts = cmd.split()
+        if not parts:
+            return
+        name = parts[0]
+        args = parts[1:]
+        print(f"Dispatching command: {name} with args: {args}")  # Debug print
+        print(f"Available commands: {[cmd_name for cmd_name, _, _, _, _ in self.root]}")  # Debug print
+        for (cmd_name, descr, help, leaf, submenu) in self.root:
+            if cmd_name == name:
+                if leaf:
+                    print(f"Executing leaf function for command: {name}")  # Debug print
+                    leaf(self.app, args)
+                elif submenu:
+                    print(f"Switching to submenu for command: {name}")  # Debug print
+                    self.set_root(submenu)
+                return
+        self.app.put(f'Unknown command: {name}\n')
+        print(f"Unknown command at dispatch: {name}")  # Debug print
 
     def parse_cmd(self):
         """
@@ -363,26 +386,11 @@ class cli:
         return True
 
     def run(self):
-        """get and process cli commands in a loop"""
-        self.app.io.put(self.prompt)
+        """run the CLI"""
         while self.running:
-            if self.get_cmd():
-                if self.parse_cmd():
-                    if self.running == True:
-                        # create a new prompt line
-                        self.reset_history()
-                        self.app.io.put('%s' % self.prompt)
-                    else:
-                        # clean exit
-                        self.app.io.put('\n\n')
-                        continue
-            # run the external polling routine
-            if self.poll != None:
-                if self.poll() == True:
-                    # create a new prompt line
-                    self.reset_history()
-                    self.app.io.put('%s' % self.prompt)
-            self.cl.render()
+            if self.poll:
+                self.poll()
+            self.execute_cmd()
 
     def exit(self):
         """exit the cli"""
