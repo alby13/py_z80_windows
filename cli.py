@@ -115,6 +115,7 @@ class cli:
         self.running = True
         self.prompt = '> '
         self.poll = None
+        self.prompt_changed = False
 
     def set_root(self, root):
         """set the menu root"""
@@ -123,6 +124,7 @@ class cli:
     def set_prompt(self, prompt):
         """set the command prompt"""
         self.prompt = prompt
+        self.prompt_changed = True
 
     def set_poll(self, poll):
         """set the external polling function"""
@@ -391,6 +393,9 @@ class cli:
             if self.poll:
                 self.poll()
             self.execute_cmd()
+            if self.prompt_changed: # Check the flag
+                self.cl.render()  # Re-render the prompt
+                self.prompt_changed = False # Reset the flag
 
     def exit(self):
         """exit the cli"""
