@@ -349,7 +349,7 @@ class jace:
                     irq = False
                 else:
                     cpu_clks += self.cpu.execute()
-            except z80.Error, e:
+            except z80.Error as e:
                 self.cpu._set_pc(pc)
                 app.put('exception: %s\n' % e)
                 return
