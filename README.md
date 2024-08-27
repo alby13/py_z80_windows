@@ -1,4 +1,4 @@
-# Py_Z80 for Windows Command Prompt and Python 3.10+
+# Py_Z80 for Windows Command Prompt, Python 3.10+
 
 Py_Z80 is a Z80 CPU emulation written in Python. I decided to try to get this emulator working in my Windows environment with a modern version of Python (3.10.6)
 
