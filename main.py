@@ -4,6 +4,7 @@ PyZ80: Z80 platform Emulator
 """
 #-----------------------------------------------------------------------------
 
+import sys
 import logging
 import conio
 import cli
@@ -13,7 +14,7 @@ import tec1
 
 #-----------------------------------------------------------------------------
 
-_version_str = 'PyZ80: Python Z80 Platform Emulator 0.1'
+_version_str = 'PyZ80: Python Z80 Platform Emulator 0.11 Windows'
 
 #-----------------------------------------------------------------------------
 
@@ -46,7 +47,8 @@ class application:
 
     def put(self, data):
         """console ouput for leaf functions"""
-        self.io.put(data)
+        print(data, end='')  # Use print() instead of self.io.put()
+        sys.stdout.flush()  # Ensure output is immediately displayed
 
     def run(self):
         self.cli.run()
@@ -60,11 +62,15 @@ class application:
 
     def target_jace(self, app, args):
         app.put('\n\nemulating "Jupiter ACE"\n')
-        jace.jace(app)
+        self.current_target = jace.jace(app) # Store the target instance
+        app.cli.set_prompt('\njace> ')
+        #jace.jace(app)
 
     def target_tec1(self, app, args):
         app.put('\n\nemulating "Talking Electronics TEC 1"\n')
-        tec1.tec1(app)
+        #self.current_target = tec1.tec1(app) # Store the target instance
+        #app.cli.set_prompt('\ntec1> ')
+        #tec1.tec1(app)
 
     def general_help(self, app, args):
         app.cli.func_help(util.general)
@@ -76,10 +82,12 @@ def main():
     app.put('\n%s\n' % _version_str)
     try:
         app.run()
-    except:
+    except KeyboardInterrupt:
+        print("Z80 Emulation stopped by user.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+    finally:
         app.cleanup()
-        raise
-    app.cleanup()
 
 #-----------------------------------------------------------------------------
 
