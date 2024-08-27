@@ -44,9 +44,10 @@ work the rest out yourself :-)
 ## Dependencies
 Tested with:
 
-* Updated to work with Windows 11 CMD Prompt
+* Updated to work with Windows 11 CMD Prompt.
+* * Windows Version Updated to Python 3.10+ (3.10.6)
+ 
 * Linux
-* Windows Version Updated to Python 3.10+ (3.10.6)
 * Python 2.4.4
 * Pygame 1.7.1
 
