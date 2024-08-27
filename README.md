@@ -50,7 +50,7 @@ Tested with:
 * Python 2.4.4
 * Pygame 1.7.1
 
-The CLI is likely to have some Linux/Windows issues - I haven't tested running under Windows.
+The CLI is likely to have some Linux/Windows issues - I haven't tested running under Windows. (Update, tested in Windows now :) )
 
 ## Future Plans
 Very few :-)
