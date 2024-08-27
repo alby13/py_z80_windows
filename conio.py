@@ -82,25 +82,31 @@ class console:
 
     def get(self):
         """get console input - return ascii code or None if no input"""
+        import conio # Importing conio here, inside the console class
+
         if msvcrt.kbhit():
             ch = msvcrt.getch()
             if ch == b'\xe0': # Handle arrow keys
                 ch = msvcrt.getch()
                 if ch == b'H':
-                    return CHAR_UP
+                    return conio.CHAR_UP
                 elif ch == b'P':
-                    return CHAR_DOWN
+                    return conio.CHAR_DOWN
                 elif ch == b'K':
-                    return CHAR_LEFT
+                    return conio.CHAR_LEFT
                 elif ch == b'M':
-                    return CHAR_RIGHT
+                    return conio.CHAR_RIGHT
             elif ch == b'\r':  # Enter key
-                return CHAR_CR
+                return conio.CHAR_CR
             elif ch == b'\x08': # Backspace key
-                return CHAR_BS # Return a specific code for backspace
+                return conio.CHAR_BS # Return a specific code for backspace
             else:
-                return ord(ch)
-        return None # Return None when no input
+                try:
+                    return ord(ch.decode('ascii')) # Decode the byte string 
+                except UnicodeDecodeError:
+                    print(f"UnicodeDecodeError for ch: {ch}") # Add this line to debug
+                    return None # Return None when no input
+            return None
 
     def put(self, data):
         """output a string to console"""
