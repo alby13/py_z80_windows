@@ -61,6 +61,9 @@ class video:
 
     def c2bmp(self, c):
         """create the bitmap surface for a given character"""
+        if c < 0 or c > 255: # Or the appropriate upper limit for your character set
+            print(f"DEBUG: Invalid character code passed to c2bmp(): {c}")
+            return None # Or a default bitmap
         inv = bool(c & 0x80)
         cadr = (c & 0x7f) << 3
         bmp = pygame.Surface((16,16))
@@ -307,6 +310,14 @@ class jace:
             ('run', 'run the emulation', util.cr, self.cli_run, None),
             ('step', 'single step the emulation', util.cr, self.cli_step, None),
         )
+
+        def filtered_char_wr(adr):
+            if 0 <= adr <= 255: # Check if it's a valid character code
+                self.video.char_wr(adr) 
+
+        def filtered_video_wr(adr):
+            if 0 <= adr <= 255: # Check if it's a valid character code
+                self.video.video_wr(adr)
 
         # create the hooks between video and memory
         self.mem.char.wr_notify = self.video.char_wr
