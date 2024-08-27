@@ -4,6 +4,8 @@ Py_Z80 is a Z80 CPU emulation written in Python. I decided to try to get this em
 
 Currently the program runs and the commands are able to be used.
 
+<img src="screenshot-pyz80.png">
+
 Also included is a machine language monitor allowing the user to dump memory, disassemble memory, dump registers and single step machine code.
 
 Two historical machines are emulated:
