@@ -71,7 +71,7 @@ etc. etc.
 Others more obsessive than myself are welcome to contribute.
 
 ## Questions/Comments
-jth@mibot.com
+jth@mibot.com (Original author's email is not valid.)
 
 ### Known Issues:
 When a keystroke is pressed in the command line, a line is echoed (printed) pushing the command line down, or in other words the user will see things moving upwards. This is a by-product of fixing/updating the program when fixing flashing/improper text input at the command line. I attempted to debug this deeply but I was not able to find a suitable fix for this.
