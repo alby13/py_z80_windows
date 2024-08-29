@@ -47,10 +47,7 @@ Tested with:
 * Updated to work with Windows 11 CMD Prompt.
 *  Windows Version Updated to Python 3.10+ (3.10.6)
 
-
-* Linux
-* Python 2.4.4
-* Pygame 1.7.1
+I did not account for using this in Linux because it was complex enough to update without the additional platform testing.
 
 The CLI is likely to have some Linux/Windows issues - I haven't tested running under Windows. (Update, tested in Windows now :) )
 
